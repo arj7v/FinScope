@@ -1,0 +1,9 @@
+venv/
+.env
+__pycache__/
+*.pyc
+sample_data/
+.DS_Store
+.pytest_cache/
+.coverage
+.vscode/
