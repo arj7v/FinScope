@@ -3,23 +3,28 @@ import os
 from dataclasses import asdict
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 from parser import parse_statement
 from categorization import categorize_all
 from metrics import compute
 from reasoning import generate_insights
+from report import generate as generate_pdf
 
 app = FastAPI(title="FinScope", version="0.1.0")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
-@app.post("/analyze")
-async def analyze(file: UploadFile = File(...)):
-    if not file.filename or not file.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
+@app.get("/", response_class=HTMLResponse)
+async def index():
+    with open("static/index.html") as f:
+        return f.read()
 
+
+def _run_pipeline(pdf_bytes: bytes):
     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-        tmp.write(await file.read())
+        tmp.write(pdf_bytes)
         tmp_path = tmp.name
 
     try:
@@ -35,6 +40,15 @@ async def analyze(file: UploadFile = File(...)):
     tagged = categorize_all(transactions)
     m = compute(tagged)
     insights = generate_insights(m)
+    return m, insights, len(transactions)
+
+
+@app.post("/analyze")
+async def analyze(file: UploadFile = File(...)):
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
+
+    m, insights, count = _run_pipeline(await file.read())
 
     return JSONResponse({
         "period": {"start": str(m.period_start), "end": str(m.period_end)},
@@ -48,5 +62,20 @@ async def analyze(file: UploadFile = File(...)):
         "monthly": [asdict(ms) for ms in m.monthly],
         "top_expenses": m.top_expenses,
         "insights": insights,
-        "transaction_count": len(transactions),
+        "transaction_count": count,
     })
+
+
+@app.post("/report")
+async def report(file: UploadFile = File(...)):
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
+
+    m, insights, _ = _run_pipeline(await file.read())
+    pdf_bytes = generate_pdf(m, insights)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=finscope_report.pdf"},
+    )
