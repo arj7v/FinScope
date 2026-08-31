@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinScope</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0f0f17;
+      --surface:  #1a1a2e;
+      --card:     #1e1e30;
+      --border:   #2e2e4a;
+      --accent:   #6366f1;
+      --accent2:  #818cf8;
+      --green:    #22c55e;
+      --red:      #ef4444;
+      --text:     #e2e2f0;
+      --muted:    #7b7b9a;
+      --radius:   12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── Nav ── */
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    nav .logo { font-size: 18px; font-weight: 700; color: var(--accent2); }
+    nav .tagline { font-size: 13px; color: var(--muted); }
+
+    /* ── Main layout ── */
+    main { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+
+    /* ── Upload card ── */
+    .upload-card {
+      background: var(--card);
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 48px 32px;
+      text-align: center;
+      transition: border-color .2s;
+    }
+    .upload-card:hover { border-color: var(--accent); }
+    .upload-card h2 { font-size: 20px; margin-bottom: 8px; }
+    .upload-card p  { font-size: 14px; color: var(--muted); margin-bottom: 28px; }
+
+    .upload-row { display: flex; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap; }
+
+    .file-label {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 20px;
+      font-size: 14px; cursor: pointer; transition: border-color .2s;
+    }
+    .file-label:hover { border-color: var(--accent); }
+    .file-label input { display: none; }
+    #file-name { font-size: 13px; color: var(--muted); }
+
+    .btn {
+      display: inline-flex; align-items: center; gap-8px;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 8px;
+      padding: 10px 28px; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: opacity .2s;
+    }
+    .btn:hover { opacity: .85; }
+    .btn:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--accent);
+      color: var(--accent2);
+    }
+    .btn-outline:hover { background: var(--accent); color: #fff; opacity: 1; }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: none; justify-content: center; align-items: center;
+      flex-direction: column; gap: 14px; padding: 40px;
+    }
+    .spinner.active { display: flex; }
+    .spin {
+      width: 40px; height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Results ── */
+    #results { display: none; }
+    #results.active { display: block; }
+
+    .section-title {
+      font-size: 13px; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--accent2);
+      margin: 36px 0 14px;
+    }
+
+    /* ── Summary cards ── */
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+    .card .label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .card .value { font-size: 22px; font-weight: 700; }
+    .card .sub   { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .green { color: var(--green); }
+    .red   { color: var(--red);   }
+
+    /* ── Category bars ── */
+    .cat-list { display: flex; flex-direction: column; gap: 10px; }
+    .cat-row { display: grid; grid-template-columns: 160px 1fr 90px; align-items: center; gap: 12px; }
+    .cat-name { font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-track { background: var(--border); border-radius: 4px; height: 8px; overflow: hidden; }
+    .bar-fill  { background: var(--accent); height: 100%; border-radius: 4px; transition: width .6s ease; }
+    .cat-amount { font-size: 13px; font-weight: 600; text-align: right; color: var(--text); }
+
+    /* ── Table ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      background: var(--surface); text-align: left;
+      padding: 10px 14px; font-size: 11px; font-weight: 700;
+      letter-spacing: .06em; text-transform: uppercase; color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+    td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface); }
+
+    /* ── Insights ── */
+    .insights-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 24px;
+      font-size: 14px;
+      line-height: 1.75;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+
+    /* ── Actions ── */
+    .actions { display: flex; gap: 12px; margin-top: 36px; flex-wrap: wrap; }
+
+    /* ── Error ── */
+    .error-box {
+      background: #2d1a1a; border: 1px solid var(--red);
+      border-radius: var(--radius); padding: 16px 20px;
+      color: var(--red); font-size: 14px; display: none;
+    }
+    .error-box.active { display: block; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <span class="logo">FinScope</span>
+  <span class="tagline">HDFC Statement Analyser</span>
+</nav>
+
+<main>
+
+  <!-- Upload -->
+  <div class="upload-card" id="upload-card">
+    <h2>Upload your bank statement</h2>
+    <p>HDFC NetBanking PDF export — unlocked files only</p>
+    <div class="upload-row">
+      <label class="file-label">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Choose PDF
+        <input type="file" id="pdf-input" accept=".pdf" />
+      </label>
+      <span id="file-name">No file chosen</span>
+      <button class="btn" id="analyze-btn" disabled onclick="analyze()">Analyse</button>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="error-box"></div>
+
+  <!-- Spinner -->
+  <div class="spinner" id="spinner">
+    <div class="spin"></div>
+    <span style="color:var(--muted);font-size:14px">Analysing your statement…</span>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+
+    <p class="section-title">Overview</p>
+    <div class="cards" id="cards"></div>
+
+    <p class="section-title">Spending by Category</p>
+    <div class="cat-list" id="cat-list"></div>
+
+    <p class="section-title">Monthly Breakdown</p>
+    <div class="table-wrap">
+      <table id="monthly-table">
+        <thead><tr><th>Month</th><th>Income</th><th>Expenses</th><th>Net</th></tr></thead>
+        <tbody id="monthly-body"></tbody>
+      </table>
+    </div>
+
+    <p class="section-title">Top Expenses</p>
+    <div class="table-wrap">
+      <table id="top-table">
+        <thead><tr><th>Date</th><th>Amount</th><th>Category</th><th>Narration</th></tr></thead>
+        <tbody id="top-body"></tbody>
+      </table>
+    </div>
+
+    <p class="section-title">AI Financial Insights</p>
+    <div class="insights-box" id="insights"></div>
+
+    <div class="actions">
+      <button class="btn btn-outline" onclick="downloadReport()">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-right:6px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download PDF Report
+      </button>
+      <button class="btn btn-outline" onclick="reset()">Analyse Another</button>
+    </div>
+
+  </div>
+</main>
+
+<script>
+  const input      = document.getElementById('pdf-input');
+  const fileName   = document.getElementById('file-name');
+  const analyzeBtn = document.getElementById('analyze-btn');
+  const spinner    = document.getElementById('spinner');
+  const results    = document.getElementById('results');
+  const errorBox   = document.getElementById('error-box');
+
+  input.addEventListener('change', () => {
+    if (input.files[0]) {
+      fileName.textContent = input.files[0].name;
+      analyzeBtn.disabled = false;
+    }
+  });
+
+  function fmt(n) {
+    return '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+
+  function showError(msg) {
+    errorBox.textContent = msg;
+    errorBox.classList.add('active');
+    spinner.classList.remove('active');
+  }
+
+  async function analyze() {
+    errorBox.classList.remove('active');
+    results.classList.remove('active');
+    spinner.classList.add('active');
+    analyzeBtn.disabled = true;
+
+    const form = new FormData();
+    form.append('file', input.files[0]);
+
+    let data;
+    try {
+      const res = await fetch('/analyze', { method: 'POST', body: form });
+      data = await res.json();
+      if (!res.ok) { showError(data.detail || 'Something went wrong.'); return; }
+    } catch (e) {
+      showError('Could not reach the server. Is it running?'); return;
+    }
+
+    spinner.classList.remove('active');
+    renderResults(data);
+    results.classList.add('active');
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function renderResults(d) {
+    const s = d.summary;
+    const savingsPos = s.net_savings >= 0;
+
+    // Cards
+    document.getElementById('cards').innerHTML = `
+      <div class="card">
+        <div class="label">Period</div>
+        <div class="value" style="font-size:15px">${d.period.start}<br>→ ${d.period.end}</div>
+        <div class="sub">${d.transaction_count} transactions</div>
+      </div>
+      <div class="card">
+        <div class="label">Total Income</div>
+        <div class="value green">${fmt(s.total_income)}</div>
+      </div>
+      <div class="card">
+        <div class="label">Total Expenses</div>
+        <div class="value red">${fmt(s.total_expenses)}</div>
+      </div>
+      <div class="card">
+        <div class="label">Net Savings</div>
+        <div class="value ${savingsPos ? 'green' : 'red'}">${fmt(s.net_savings)}</div>
+        <div class="sub ${savingsPos ? 'green' : 'red'}">${s.savings_rate_pct}% savings rate</div>
+      </div>`;
+
+    // Category bars
+    const cats = Object.entries(d.by_category);
+    const maxAmt = cats.length ? cats[0][1] : 1;
+    document.getElementById('cat-list').innerHTML = cats.map(([cat, amt]) => `
+      <div class="cat-row">
+        <span class="cat-name">${cat}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${(amt/maxAmt*100).toFixed(1)}%"></div></div>
+        <span class="cat-amount">${fmt(amt)}</span>
+      </div>`).join('');
+
+    // Monthly
+    document.getElementById('monthly-body').innerHTML = d.monthly.map(m => `
+      <tr>
+        <td>${m.month}</td>
+        <td class="green">${fmt(m.income)}</td>
+        <td class="red">${fmt(m.expenses)}</td>
+        <td class="${m.net >= 0 ? 'green' : 'red'}">${fmt(m.net)}</td>
+      </tr>`).join('');
+
+    // Top expenses
+    document.getElementById('top-body').innerHTML = d.top_expenses.map(e => `
+      <tr>
+        <td>${e.date}</td>
+        <td class="red">${fmt(e.amount)}</td>
+        <td style="color:var(--muted)">${e.category}</td>
+        <td style="font-size:12px;color:var(--muted)">${e.narration.substring(0,60)}</td>
+      </tr>`).join('');
+
+    // Insights
+    document.getElementById('insights').textContent = d.insights;
+  }
+
+  async function downloadReport() {
+    const form = new FormData();
+    form.append('file', input.files[0]);
+
+    const res = await fetch('/report', { method: 'POST', body: form });
+    if (!res.ok) { showError('Failed to generate PDF report.'); return; }
+
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'finscope_report.pdf';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function reset() {
+    input.value = '';
+    fileName.textContent = 'No file chosen';
+    analyzeBtn.disabled = true;
+    results.classList.remove('active');
+    errorBox.classList.remove('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+</script>
+
+</body>
+</html>
