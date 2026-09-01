@@ -29,4 +29,6 @@ class Transaction(BaseModel):
         if isinstance(v, date):
             return v
         # Handle DD/MM/YY format
-        return datetime.strptime(str(v).strip(), "%d/%m/%y")
+        s = str(v).strip()
+        fmt = "%d/%m/%Y" if len(s) == 10 else "%d/%m/%y"
+        return datetime.strptime(s, fmt)

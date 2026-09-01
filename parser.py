@@ -6,8 +6,13 @@ import pdfplumber
 from models import Transaction
 
 
-HEADER_ROW = {"date", "narration", "chq./ref.no.", "valuedt", "withdrawalamt.", "depositamt.", "closingbalance"}
-DATE_RE = re.compile(r"^\d{2}/\d{2}/\d{2}$")
+# Old format headers (DD/MM/YY, multi-txn rows)
+# New format headers (DD/MM/YYYY, one txn per row, 0.00 for empty amounts)
+HEADER_ROW = {
+    "date", "narration", "chq./ref.no.", "valuedt", "withdrawalamt.", "depositamt.", "closingbalance",
+    "chq./refno.", "valuedate", "withdrawalamount", "depositamount", "closingbalance*",
+}
+DATE_RE = re.compile(r"^\d{2}/\d{2}/\d{2,4}$")
 ALNUM_RE = re.compile(r"[^A-Z0-9]")
 # Line begins a new transaction if it starts with one of these markers.
 # UPI- requires a letter after the dash, since `UPI-648862497443-UPI` is a continuation.
@@ -80,6 +85,42 @@ def _group_narrations(narration_lines: list, n: int) -> list:
     return groups[: n - 1] + [" ".join(groups[n - 1:])]
 
 
+def _is_new_format(date_str: str) -> bool:
+    """New format uses DD/MM/YYYY (len 10); old format uses DD/MM/YY (len 8)."""
+    return len(date_str.strip()) == 10
+
+
+def _parse_new_format_row(row: list) -> Transaction | None:
+    """Parse a single-transaction row from the new HDFC statement format."""
+    try:
+        date_str      = row[0].strip()
+        narration     = row[1].replace("\n", " ").strip() if row[1] else ""
+        ref_no        = row[2].strip() if row[2] else ""
+        value_date    = row[3].strip() if row[3] else date_str
+        withdrawal    = _parse_amount(row[4])
+        deposit       = _parse_amount(row[5])
+        closing       = _parse_amount(row[6])
+
+        # New format uses "0.00" for the absent side — treat as None
+        if withdrawal == 0.0:
+            withdrawal = None
+        if deposit == 0.0:
+            deposit = None
+
+        return Transaction(
+            date=date_str,
+            narration=narration,
+            ref_no=ref_no,
+            value_date=value_date,
+            withdrawal=withdrawal,
+            deposit=deposit,
+            closing_balance=closing,
+        )
+    except Exception as e:
+        print(f"Skipping new-format row: {e}")
+        return None
+
+
 def parse_statement(pdf_path: str) -> List[Transaction]:
     transactions = []
 
@@ -95,6 +136,12 @@ def parse_statement(pdf_path: str) -> List[Transaction]:
 
                 dates = _split_cell(row[0])
                 if not dates or not DATE_RE.match(dates[0]):
+                    continue
+
+                if _is_new_format(dates[0]):
+                    txn = _parse_new_format_row(row)
+                    if txn:
+                        transactions.append(txn)
                     continue
 
                 narration_lines = _split_cell(row[1])
