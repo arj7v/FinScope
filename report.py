@@ -2,6 +2,27 @@ from fpdf import FPDF
 from metrics import Metrics
 
 
+# Map common Unicode typography to latin-1 safe equivalents
+_UNICODE_MAP = str.maketrans({
+    "—": "-",   # em dash
+    "–": "-",   # en dash
+    "‘": "'",   # left single quote
+    "’": "'",   # right single quote
+    "“": '"',   # left double quote
+    "”": '"',   # right double quote
+    "…": "...", # ellipsis
+    "‑": "-",   # non-breaking hyphen
+    " ": " ",   # non-breaking space
+    "₹": "Rs ", # rupee sign
+    "•": "-",   # bullet
+})
+
+
+def _s(text: str) -> str:
+    """Sanitize text to latin-1 safe characters for fpdf Helvetica font."""
+    return text.translate(_UNICODE_MAP).encode("latin-1", errors="replace").decode("latin-1")
+
+
 _ACCENT = (99, 102, 241)   # indigo
 _DARK   = (30, 30, 46)
 _GRAY   = (100, 100, 120)
@@ -17,7 +38,7 @@ class _PDF(FPDF):
         self.set_font("Helvetica", "B", 13)
         self.set_text_color(255, 255, 255)
         self.set_xy(0, 4)
-        self.cell(210, 10, "FinScope — Financial Report", align="C")
+        self.cell(210, 10, _s("FinScope - Financial Report"), align="C")
         self.set_text_color(0, 0, 0)
         self.ln(12)
 
@@ -128,8 +149,8 @@ def generate(m: Metrics, insights: str) -> bytes:
         pdf.set_text_color(*_RED)
         pdf.cell(30, 5, f"Rs {e['amount']:,.0f}")
         pdf.set_text_color(*_GRAY)
-        pdf.cell(35, 5, e["category"][:18])
-        pdf.cell(100, 5, e["narration"][:55], ln=True)
+        pdf.cell(35, 5, _s(e["category"][:18]))
+        pdf.cell(100, 5, _s(e["narration"][:55]), ln=True)
         pdf.set_text_color(0, 0, 0)
 
     # ── AI Insights ───────────────────────────────────────────────────────────
@@ -139,6 +160,6 @@ def generate(m: Metrics, insights: str) -> bytes:
     pdf.set_fill_color(*_LIGHT)
     pdf.rect(10, pdf.get_y(), 190, 4, "F")
     pdf.ln(5)
-    pdf.multi_cell(190, 6, insights.strip())
+    pdf.multi_cell(190, 6, _s(insights.strip()))
 
     return bytes(pdf.output())
