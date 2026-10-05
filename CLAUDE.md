@@ -73,7 +73,7 @@ report.py ── fpdf2 PDF report: summary cards, category bars, tables, insight
 ├── tests/
 │   ├── test_categorization.py   # 24 categorization unit tests
 │   └── test_metrics.py          # 13 metrics unit tests
-├── unlock.py            # Throwaway script — gitignored, never committed
+├── unlock.py            # Throwaway script — gitignored; was once committed, purged from history via git-filter-repo
 ├── .env                 # GROQ_API_KEY — gitignored, never committed
 ├── sample_data/         # Real unlocked PDFs — gitignored, never committed
 ├── Procfile             # For Railway/Render deployment
